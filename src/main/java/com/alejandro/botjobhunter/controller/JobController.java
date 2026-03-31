@@ -2,8 +2,7 @@ package com.alejandro.botjobhunter.controller;
 
 import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.repository.JobRepository;
-import com.alejandro.botjobhunter.service.ScraperOrchestrator;
-import com.alejandro.botjobhunter.service.scrapper.*;
+import com.alejandro.botjobhunter.service.scrapper.ScraperOrchestrator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
