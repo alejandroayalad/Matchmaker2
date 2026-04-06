@@ -26,7 +26,7 @@ public class IndeedResponseDTO {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class IndeedJobDTO {
         private String displayTitle;
-        private String title; // Fallback just in case
+        private String title;
         private String company;
         private String jobkey;
         private String formattedLocation;
