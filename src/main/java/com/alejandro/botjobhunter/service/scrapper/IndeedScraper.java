@@ -3,6 +3,7 @@ package com.alejandro.botjobhunter.service.scrapper;
 import com.alejandro.botjobhunter.dto.IndeedResponseDTO;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
+import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -82,7 +83,7 @@ public class IndeedScraper implements JobScrapper{
                                 .location(dto.getFormattedLocation())
                                 .description(cleanSnippet)
                                 .urlApplication("https://mx.indeed.com/viewjob?jk=" + dto.getJobkey())
-                                .source("Indeed")
+                                .source(JobSource.INDEED)
                                 .salary(salary)
                                 .active(true)
                                 .build();

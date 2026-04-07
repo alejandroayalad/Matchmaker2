@@ -11,6 +11,7 @@ import jakarta.mail.search.OrTerm;
 import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.search.SearchTerm;
 import jakarta.mail.search.SubjectTerm;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Service
+@ConditionalOnProperty(prefix = "mail", name = "enabled", havingValue = "true")
 public class EmailOrchestrator {
 
     private final EmailConnectionService emailConnectionService;

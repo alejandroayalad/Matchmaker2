@@ -3,6 +3,7 @@ package com.alejandro.botjobhunter.service.scrapper;
 import com.alejandro.botjobhunter.dto.RemoteOKJobDTO;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
+import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.jsoup.Jsoup;
@@ -100,7 +101,7 @@ public class RemoteOKScrapper implements JobScrapper {
                         .location(dto.getLocation())
                         .description(cleanDescription)
                         .urlApplication(dto.getUrl())
-                        .source("RemoteOK")
+                        .source(JobSource.REMOTEOK)
                         .active(true)
                         .build();
 

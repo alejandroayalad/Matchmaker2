@@ -1,6 +1,7 @@
 package com.alejandro.botjobhunter.models;
 
 import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
+import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.models.enums.JobType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,7 +26,10 @@ public class Job {
     private String requirements;
 
     private String urlApplication;
-    private String source;
+
+    @Enumerated(EnumType.STRING)
+    private JobSource source;
+
     private String location;
 
     private String salary;

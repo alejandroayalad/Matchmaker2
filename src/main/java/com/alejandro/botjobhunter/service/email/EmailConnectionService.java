@@ -5,9 +5,11 @@ import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(prefix = "mail", name = "enabled", havingValue = "true")
 public class EmailConnectionService {
 
     private final Session session;
