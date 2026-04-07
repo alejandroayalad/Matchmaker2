@@ -4,6 +4,7 @@ import com.alejandro.botjobhunter.dto.EmailParseResult;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.EmailProcessingLog;
 import com.alejandro.botjobhunter.models.Job;
+import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
 import com.alejandro.botjobhunter.models.enums.EmailStatus;
 import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
@@ -37,6 +38,12 @@ import java.util.Objects;
 @Service
 @ConditionalOnProperty(prefix = "mail", name = "enabled", havingValue = "true")
 public class EmailOrchestrator {
+    private static final String DEFAULT_DESCRIPTION =
+            "Imported from LinkedIn email alert. Full job description was not included in the email.";
+    private static final String DEFAULT_REQUIREMENTS =
+            "Not available from LinkedIn email alert import.";
+    private static final String DEFAULT_SALARY = "Not specified";
+    private static final String DEFAULT_RECRUITER_NAME = "Not available";
 
     private final EmailConnectionService emailConnectionService;
     private final MimeBodyExtractor mimeBodyExtractor;
@@ -97,6 +104,12 @@ public class EmailOrchestrator {
                 return;
             }
 
+            if (!linkedInEmailParser.isLikelyJobAlertEmail(subject, sender, htmlBody)) {
+                saveLog(messageId, subject, sender, processedAt, 0, EmailStatus.SKIPPED);
+                accumulator.incrementSkipped();
+                return;
+            }
+
             List<EmailJobResultDTO> parsedJobs = linkedInEmailParser.parse(htmlBody);
             if (parsedJobs.isEmpty()) {
                 saveLog(messageId, subject, sender, processedAt, 0, EmailStatus.SKIPPED);
@@ -144,8 +157,13 @@ public class EmailOrchestrator {
                     .title(parsedJob.title())
                     .company(company)
                     .location(parsedJob.location())
+                    .description(DEFAULT_DESCRIPTION)
+                    .requirements(DEFAULT_REQUIREMENTS)
                     .urlApplication(parsedJob.url())
                     .source(JobSource.LINKEDIN_EMAIL)
+                    .salary(DEFAULT_SALARY)
+                    .recruiterName(DEFAULT_RECRUITER_NAME)
+                    .experienceLevel(inferExperienceLevel(parsedJob.title()))
                     .scrappedAt(processedAt)
                     .active(true)
                     .build();
@@ -262,6 +280,33 @@ public class EmailOrchestrator {
             return "Unknown Company";
         }
         return companyName.trim();
+    }
+
+    private ExperienceLevel inferExperienceLevel(String title) {
+        if (title == null || title.isBlank()) {
+            return ExperienceLevel.MID;
+        }
+
+        String normalizedTitle = title.toLowerCase(Locale.ROOT);
+        if (containsAny(normalizedTitle, "intern", "entry", "trainee")) {
+            return ExperienceLevel.ENTRY;
+        }
+        if (containsAny(normalizedTitle, "junior", "jr")) {
+            return ExperienceLevel.JUNIOR;
+        }
+        if (containsAny(normalizedTitle, "senior", "sr", "staff", "principal", "lead")) {
+            return ExperienceLevel.SENIOR;
+        }
+        return ExperienceLevel.MID;
+    }
+
+    private boolean containsAny(String value, String... tokens) {
+        for (String token : tokens) {
+            if (value.contains(token)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private SearchTerm buildLinkedInSearchTerm(Date since) {

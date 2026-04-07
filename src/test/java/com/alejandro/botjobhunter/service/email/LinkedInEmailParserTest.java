@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LinkedInEmailParserTest {
 
@@ -205,6 +207,85 @@ class LinkedInEmailParserTest {
                         "https://www.linkedin.com/jobs/view/4397704898"
                 ),
                 results.get(1)
+        );
+    }
+
+    @Test
+    void isLikelyJobAlertEmailShouldAcceptLinkedInAlerts() {
+        String html = """
+                <html>
+                  <body>
+                    <a href="https://www.linkedin.com/comm/jobs/view/4397726012/?trackingId=jobcard_body_0"
+                       style="font-weight:600">Junior Software Developer - Remote</a>
+                    <p>LinkedIn</p>
+                  </body>
+                </html>
+                """;
+
+        assertTrue(parser.isLikelyJobAlertEmail(
+                "LinkedIn Job Alert",
+                "jobs-noreply@linkedin.com",
+                html
+        ));
+    }
+
+    @Test
+    void isLikelyJobAlertEmailShouldRejectNonLinkedInEmails() {
+        String html = """
+                <html>
+                  <body>
+                    <a href="https://example.com/jobs/view/4397726012"
+                       style="font-weight:600">Junior Software Developer - Remote</a>
+                  </body>
+                </html>
+                """;
+
+        assertFalse(parser.isLikelyJobAlertEmail(
+                "Weekly digest",
+                "newsletter@example.com",
+                html
+        ));
+    }
+
+    @Test
+    void parseShouldNormalizeTrackingUrlsAndIgnoreMalformedLinks() {
+        String html = """
+                <html>
+                  <body>
+                    <table>
+                      <tr>
+                        <td>
+                          <a href="https://www.linkedin.com/track?url=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F5555%2F%3FtrackingId%3Dabc"
+                             style="font-weight:600">
+                            Mid Backend Engineer
+                          </a>
+                          <p style="color:#1f1f1f;font-size:12px">Acme Corp · Remote</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <a href="https://www.linkedin.com/jobs/view/not-a-real-id"
+                             style="font-weight:600">
+                            Broken Job
+                          </a>
+                          <p style="color:#1f1f1f;font-size:12px">Broken Inc · Remote</p>
+                        </td>
+                    </table>
+                  </body>
+                </html>
+                """;
+
+        List<EmailJobResultDTO> results = parser.parse(html);
+
+        assertEquals(1, results.size());
+        assertEquals(
+                new EmailJobResultDTO(
+                        "Mid Backend Engineer",
+                        "Acme Corp",
+                        "Remote",
+                        "https://www.linkedin.com/jobs/view/5555"
+                ),
+                results.get(0)
         );
     }
 }

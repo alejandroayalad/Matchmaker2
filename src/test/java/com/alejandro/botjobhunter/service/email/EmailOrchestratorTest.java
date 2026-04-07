@@ -97,6 +97,10 @@ class EmailOrchestratorTest {
         assertEquals(JobSource.LINKEDIN_EMAIL, savedJob.getSource());
         assertEquals("Junior Software Developer - Remote", savedJob.getTitle());
         assertEquals("https://www.linkedin.com/jobs/view/4397726012", savedJob.getUrlApplication());
+        assertEquals("Imported from LinkedIn email alert. Full job description was not included in the email.", savedJob.getDescription());
+        assertEquals("Not available from LinkedIn email alert import.", savedJob.getRequirements());
+        assertEquals("Not specified", savedJob.getSalary());
+        assertEquals("Not available", savedJob.getRecruiterName());
         assertNotNull(savedJob.getCompany());
         assertEquals("Quik Hire Staffing", savedJob.getCompany().getName());
 
