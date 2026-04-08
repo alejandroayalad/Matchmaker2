@@ -40,6 +40,7 @@ class EmailOrchestratorTest {
         EmailConnectionService emailConnectionService = mock(EmailConnectionService.class);
         MimeBodyExtractor mimeBodyExtractor = new MimeBodyExtractor();
         LinkedInEmailParser linkedInEmailParser = new LinkedInEmailParser();
+        EmailCleanupService emailCleanupService = mock(EmailCleanupService.class);
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
         CompanyRepository companyRepository = mock(CompanyRepository.class);
         JobRepository jobRepository = mock(JobRepository.class);
@@ -48,6 +49,7 @@ class EmailOrchestratorTest {
                 emailConnectionService,
                 mimeBodyExtractor,
                 linkedInEmailParser,
+                emailCleanupService,
                 emailProcessingLogRepository,
                 companyRepository,
                 jobRepository,
@@ -110,6 +112,7 @@ class EmailOrchestratorTest {
         assertEquals("<message-1>", savedLog.getMessageId());
         assertEquals(EmailStatus.PROCESSED, savedLog.getStatus());
         assertEquals(1, savedLog.getJobsExtracted());
+        verify(emailCleanupService).cleanup(message);
     }
 
     @Test
@@ -117,6 +120,7 @@ class EmailOrchestratorTest {
         EmailConnectionService emailConnectionService = mock(EmailConnectionService.class);
         MimeBodyExtractor mimeBodyExtractor = mock(MimeBodyExtractor.class);
         LinkedInEmailParser linkedInEmailParser = new LinkedInEmailParser();
+        EmailCleanupService emailCleanupService = mock(EmailCleanupService.class);
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
         CompanyRepository companyRepository = mock(CompanyRepository.class);
         JobRepository jobRepository = mock(JobRepository.class);
@@ -125,6 +129,7 @@ class EmailOrchestratorTest {
                 emailConnectionService,
                 mimeBodyExtractor,
                 linkedInEmailParser,
+                emailCleanupService,
                 emailProcessingLogRepository,
                 companyRepository,
                 jobRepository,
@@ -142,6 +147,7 @@ class EmailOrchestratorTest {
         verify(mimeBodyExtractor, never()).extractHtmlBody(any(Message.class));
         verify(jobRepository, never()).save(any(Job.class));
         verify(emailProcessingLogRepository, never()).save(any(EmailProcessingLog.class));
+        verify(emailCleanupService, never()).cleanup(any(Message.class));
     }
 
     @Test
@@ -149,6 +155,7 @@ class EmailOrchestratorTest {
         EmailConnectionService emailConnectionService = mock(EmailConnectionService.class);
         MimeBodyExtractor mimeBodyExtractor = mock(MimeBodyExtractor.class);
         LinkedInEmailParser linkedInEmailParser = new LinkedInEmailParser();
+        EmailCleanupService emailCleanupService = mock(EmailCleanupService.class);
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
         CompanyRepository companyRepository = mock(CompanyRepository.class);
         JobRepository jobRepository = mock(JobRepository.class);
@@ -157,6 +164,7 @@ class EmailOrchestratorTest {
                 emailConnectionService,
                 mimeBodyExtractor,
                 linkedInEmailParser,
+                emailCleanupService,
                 emailProcessingLogRepository,
                 companyRepository,
                 jobRepository,
@@ -181,6 +189,71 @@ class EmailOrchestratorTest {
         assertEquals("<message-3>", savedLog.getMessageId());
         assertEquals(EmailStatus.FAILED, savedLog.getStatus());
         assertEquals(0, savedLog.getJobsExtracted());
+        verify(emailCleanupService, never()).cleanup(any(Message.class));
+    }
+
+    @Test
+    void importLinkedInEmailsShouldIgnoreCleanupFailuresAfterSuccessfulImport() throws Exception {
+        EmailConnectionService emailConnectionService = mock(EmailConnectionService.class);
+        MimeBodyExtractor mimeBodyExtractor = new MimeBodyExtractor();
+        LinkedInEmailParser linkedInEmailParser = new LinkedInEmailParser();
+        EmailCleanupService emailCleanupService = mock(EmailCleanupService.class);
+        EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        CompanyRepository companyRepository = mock(CompanyRepository.class);
+        JobRepository jobRepository = mock(JobRepository.class);
+
+        EmailOrchestrator orchestrator = new EmailOrchestrator(
+                emailConnectionService,
+                mimeBodyExtractor,
+                linkedInEmailParser,
+                emailCleanupService,
+                emailProcessingLogRepository,
+                companyRepository,
+                jobRepository,
+                new JobDeduplicationService()
+        );
+
+        MimeMessage message = buildLinkedInMessage(
+                "<message-4>",
+                """
+                        <table role="presentation" width="100%">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <a href="https://www.linkedin.com/comm/jobs/view/4397726012/?trackingId=jobcard_body_0"
+                                   style="color:#0a66c2;font-size:16px;font-weight:600;line-height:1.25">
+                                  Senior Software Engineer
+                                </a>
+                                <p style="margin:0;color:#1f1f1f;font-size:12px;line-height:1.25">
+                                  Acme Corp · Remote
+                                </p>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        """
+        );
+
+        stubInbox(emailConnectionService, message);
+
+        when(emailProcessingLogRepository.existsByMessageId("<message-4>")).thenReturn(false);
+        when(companyRepository.findByNameIgnoreCase("Acme Corp")).thenReturn(Optional.empty());
+        when(companyRepository.save(any(Company.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobRepository.existsByTitleIgnoreCaseAndCompany_NameIgnoreCaseAndUrlApplication(
+                eq("Senior Software Engineer"),
+                eq("Acme Corp"),
+                eq("https://www.linkedin.com/jobs/view/4397726012")
+        )).thenReturn(false);
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(emailProcessingLogRepository.save(any(EmailProcessingLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        org.mockito.Mockito.doThrow(new MessagingException("cleanup failed"))
+                .when(emailCleanupService).cleanup(message);
+
+        EmailParseResult result = orchestrator.importLinkedInEmails(null);
+
+        assertEquals(new EmailParseResult(1, 1, 0, 0, 1, 1), result);
+        verify(jobRepository).save(any(Job.class));
+        verify(emailCleanupService).cleanup(message);
     }
 
     @SuppressWarnings("unchecked")

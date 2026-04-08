@@ -48,6 +48,7 @@ public class EmailOrchestrator {
     private final EmailConnectionService emailConnectionService;
     private final MimeBodyExtractor mimeBodyExtractor;
     private final LinkedInEmailParser linkedInEmailParser;
+    private final EmailCleanupService emailCleanupService;
     private final EmailProcessingLogRepository emailProcessingLogRepository;
     private final CompanyRepository companyRepository;
     private final JobRepository jobRepository;
@@ -57,6 +58,7 @@ public class EmailOrchestrator {
             EmailConnectionService emailConnectionService,
             MimeBodyExtractor mimeBodyExtractor,
             LinkedInEmailParser linkedInEmailParser,
+            EmailCleanupService emailCleanupService,
             EmailProcessingLogRepository emailProcessingLogRepository,
             CompanyRepository companyRepository,
             JobRepository jobRepository,
@@ -65,6 +67,7 @@ public class EmailOrchestrator {
         this.emailConnectionService = emailConnectionService;
         this.mimeBodyExtractor = mimeBodyExtractor;
         this.linkedInEmailParser = linkedInEmailParser;
+        this.emailCleanupService = emailCleanupService;
         this.emailProcessingLogRepository = emailProcessingLogRepository;
         this.companyRepository = companyRepository;
         this.jobRepository = jobRepository;
@@ -133,6 +136,7 @@ public class EmailOrchestrator {
             );
 
             if (jobsSaved > 0) {
+                cleanupProcessedMessage(message);
                 accumulator.incrementProcessed();
                 accumulator.addSavedJobs(jobsSaved);
             } else {
@@ -144,6 +148,14 @@ public class EmailOrchestrator {
         } catch (RuntimeException exception) {
             saveLog(messageId, subject, sender, processedAt, 0, EmailStatus.FAILED);
             accumulator.incrementFailed();
+        }
+    }
+
+    private void cleanupProcessedMessage(Message message) {
+        try {
+            emailCleanupService.cleanup(message);
+        } catch (MessagingException exception) {
+            System.err.println("Email cleanup failed: " + exception.getMessage());
         }
     }
 

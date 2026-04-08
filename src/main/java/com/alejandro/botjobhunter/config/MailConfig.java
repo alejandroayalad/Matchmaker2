@@ -10,7 +10,7 @@ import java.util.Properties;
 
 @Configuration
 @ConditionalOnProperty(prefix = "mail", name = "enabled", havingValue = "true")
-@EnableConfigurationProperties(ImapProperties.class)
+@EnableConfigurationProperties({ImapProperties.class, EmailCleanupProperties.class})
 public class MailConfig {
 
     @Bean
