@@ -1,10 +1,14 @@
 package com.alejandro.botjobhunter.controller;
 
 import com.alejandro.botjobhunter.dto.EmailParseResult;
+import com.alejandro.botjobhunter.dto.UrlImportRequest;
 import com.alejandro.botjobhunter.models.EmailProcessingLog;
+import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.enums.EmailStatus;
+import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.repository.EmailProcessingLogRepository;
 import com.alejandro.botjobhunter.service.email.EmailOrchestrator;
+import com.alejandro.botjobhunter.service.importer.UrlImportService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -32,13 +36,15 @@ class ImportControllerTest {
     void importLinkedInEmailsShouldReturnImportSummary() throws Exception {
         EmailOrchestrator emailOrchestrator = mock(EmailOrchestrator.class);
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
 
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("emailOrchestrator", emailOrchestrator);
 
         ImportController controller = new ImportController(
                 beanFactory.getBeanProvider(EmailOrchestrator.class),
-                emailProcessingLogRepository
+                emailProcessingLogRepository,
+                urlImportService
         );
 
         EmailParseResult expected = new EmailParseResult(3, 2, 1, 0, 5, 4);
@@ -53,10 +59,11 @@ class ImportControllerTest {
     @Test
     void importLinkedInEmailsShouldReturnServiceUnavailableWhenMailIsDisabled() {
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
         ObjectProvider<EmailOrchestrator> provider = new StaticListableBeanFactory()
                 .getBeanProvider(EmailOrchestrator.class);
 
-        ImportController controller = new ImportController(provider, emailProcessingLogRepository);
+        ImportController controller = new ImportController(provider, emailProcessingLogRepository, urlImportService);
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -69,9 +76,11 @@ class ImportControllerTest {
     @Test
     void getEmailImportLogShouldApplyStatusFilterAndPagination() {
         EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
         ImportController controller = new ImportController(
                 new StaticListableBeanFactory().getBeanProvider(EmailOrchestrator.class),
-                emailProcessingLogRepository
+                emailProcessingLogRepository,
+                urlImportService
         );
 
         EmailProcessingLog log = EmailProcessingLog.builder()
@@ -98,5 +107,74 @@ class ImportControllerTest {
         assertEquals(1, pageable.getPageNumber());
         assertEquals(100, pageable.getPageSize());
         assertEquals("processedAt: DESC", pageable.getSort().toString());
+    }
+
+    @Test
+    void importJobFromUrlShouldReturnSavedJob() {
+        EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
+        ImportController controller = new ImportController(
+                new StaticListableBeanFactory().getBeanProvider(EmailOrchestrator.class),
+                emailProcessingLogRepository,
+                urlImportService
+        );
+
+        UrlImportRequest request = new UrlImportRequest("https://www.linkedin.com/jobs/view/1234567890/");
+        Job expectedJob = Job.builder()
+                .title("Senior Backend Engineer")
+                .urlApplication(request.url())
+                .source(JobSource.LINKEDIN_URL)
+                .active(true)
+                .build();
+
+        when(urlImportService.importFromUrl(request.url())).thenReturn(expectedJob);
+
+        Job result = controller.importJobFromUrl(request);
+
+        assertEquals(expectedJob, result);
+        verify(urlImportService).importFromUrl(request.url());
+    }
+
+    @Test
+    void importJobFromUrlShouldReturnBadRequestForInvalidUrl() {
+        EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
+        ImportController controller = new ImportController(
+                new StaticListableBeanFactory().getBeanProvider(EmailOrchestrator.class),
+                emailProcessingLogRepository,
+                urlImportService
+        );
+
+        UrlImportRequest request = new UrlImportRequest("   ");
+        when(urlImportService.importFromUrl(request.url())).thenThrow(new IllegalArgumentException("URL is required."));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.importJobFromUrl(request)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void importJobFromUrlShouldReturnConflictWhenJobAlreadyExists() {
+        EmailProcessingLogRepository emailProcessingLogRepository = mock(EmailProcessingLogRepository.class);
+        UrlImportService urlImportService = mock(UrlImportService.class);
+        ImportController controller = new ImportController(
+                new StaticListableBeanFactory().getBeanProvider(EmailOrchestrator.class),
+                emailProcessingLogRepository,
+                urlImportService
+        );
+
+        UrlImportRequest request = new UrlImportRequest("https://careers.example.com/jobs/123");
+        when(urlImportService.importFromUrl(request.url()))
+                .thenThrow(new IllegalStateException("Job already exists for URL import: " + request.url()));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.importJobFromUrl(request)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
     }
 }

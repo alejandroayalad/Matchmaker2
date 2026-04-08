@@ -270,6 +270,7 @@ class LinkedInEmailParserTest {
                           </a>
                           <p style="color:#1f1f1f;font-size:12px">Broken Inc · Remote</p>
                         </td>
+                      </tr>
                     </table>
                   </body>
                 </html>
