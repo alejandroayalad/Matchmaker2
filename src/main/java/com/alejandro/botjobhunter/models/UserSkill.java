@@ -24,6 +24,8 @@ public class UserSkill {
     @Enumerated(EnumType.STRING)
     private ProficiencyLevel proficiencyLevel;
 
+    private Integer matchWeight;
+
     private Integer yearsOfExperience;
 
     @Enumerated (EnumType.STRING)
@@ -33,4 +35,29 @@ public class UserSkill {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @PrePersist
+    @PreUpdate
+    private void applyDefaultMatchWeight() {
+        if (matchWeight == null) {
+            matchWeight = defaultMatchWeightFor(proficiencyLevel);
+        }
+    }
+
+    public int getEffectiveMatchWeight() {
+        return matchWeight != null ? matchWeight : defaultMatchWeightFor(proficiencyLevel);
+    }
+
+    private static int defaultMatchWeightFor(ProficiencyLevel proficiencyLevel) {
+        if (proficiencyLevel == null) {
+            return 0;
+        }
+
+        return switch (proficiencyLevel) {
+            case BEGINNER -> 3;
+            case INTERMEDIATE -> 6;
+            case PROFICIENT -> 8;
+            case ADVANCED -> 10;
+        };
+    }
 }
