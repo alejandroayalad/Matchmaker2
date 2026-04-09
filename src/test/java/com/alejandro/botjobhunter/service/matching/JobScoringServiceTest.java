@@ -86,7 +86,7 @@ class JobScoringServiceTest {
         when(preferencesRepository.findByUser_Id(1L)).thenReturn(Optional.of(preferences));
         when(userSkillRepository.findAllByUser_Id(1L)).thenReturn(userSkills);
         when(jobRepository.findMatchCandidates(
-                eq(ExperienceLevel.MID),
+                eq(List.of(ExperienceLevel.SENIOR)),
                 eq("Merida, Yucatan"),
                 anyCollection(),
                 anyCollection(),

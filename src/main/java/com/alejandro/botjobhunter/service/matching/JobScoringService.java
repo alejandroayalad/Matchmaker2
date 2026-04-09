@@ -5,6 +5,7 @@ import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.JobSearchPreferences;
 import com.alejandro.botjobhunter.models.User;
 import com.alejandro.botjobhunter.models.UserSkill;
+import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
 import com.alejandro.botjobhunter.models.enums.SkillCategory;
 import com.alejandro.botjobhunter.repository.JobRepository;
 import com.alejandro.botjobhunter.repository.JobSearchPreferencesRepository;
@@ -12,6 +13,7 @@ import com.alejandro.botjobhunter.repository.UserRepository;
 import com.alejandro.botjobhunter.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ public class JobScoringService {
     private final JobSearchPreferencesRepository jobSearchPreferencesRepository;
     private final JobRepository jobRepository;
 
+    @Transactional(readOnly = true)
     public List<ScoreCard> getMatchedJobs(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
@@ -70,7 +73,7 @@ public class JobScoringService {
         List<UserSkill> userSkills = userSkillRepository.findAllByUser_Id(userId);
 
         List<Job> candidates = jobRepository.findMatchCandidates(
-                preferences.getTargetSeniority(),
+                resolveExcludedSeniorities(preferences.getTargetSeniority()),
                 preferences.getPreferredLocation(),
                 preferences.getBlacklistedCompanies(),
                 preferences.getNegativeKeywords(),
@@ -229,6 +232,19 @@ public class JobScoringService {
         }
 
         return unsupported;
+    }
+
+    private List<ExperienceLevel> resolveExcludedSeniorities(ExperienceLevel targetSeniority) {
+        if (targetSeniority == null) {
+            return List.of();
+        }
+
+        return switch (targetSeniority) {
+            case ENTRY -> List.of(ExperienceLevel.JUNIOR, ExperienceLevel.MID, ExperienceLevel.SENIOR);
+            case JUNIOR -> List.of(ExperienceLevel.MID, ExperienceLevel.SENIOR);
+            case MID -> List.of(ExperienceLevel.SENIOR);
+            case SENIOR -> List.of();
+        };
     }
 
     private String resolveKnownLanguageKey(String skillName) {

@@ -19,6 +19,10 @@ public class DataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        if (userRepository.count() > 0) {
+            System.out.println(">>> Seed skipped: users already exist.");
+            return;
+        }
 
         User alejandro = userRepository.save(User.builder()
                 .firstName("Alejandro")

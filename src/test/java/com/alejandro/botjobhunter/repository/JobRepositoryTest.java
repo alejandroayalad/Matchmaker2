@@ -39,7 +39,7 @@ class JobRepositoryTest {
         ));
 
         List<Job> candidates = jobRepository.findMatchCandidates(
-                ExperienceLevel.MID,
+                List.of(ExperienceLevel.SENIOR),
                 "Merida, Yucatan",
                 List.of("Teleperformance"),
                 List.of("php"),

@@ -30,7 +30,7 @@ public class JobRepositoryImpl implements JobRepositoryCustom {
 
     @Override
     public List<Job> findMatchCandidates(
-            ExperienceLevel targetSeniority,
+            Collection<ExperienceLevel> excludedSeniorities,
             String preferredLocation,
             Collection<String> blacklistedCompanies,
             Collection<String> negativeTitleKeywords,
@@ -46,10 +46,10 @@ public class JobRepositoryImpl implements JobRepositoryCustom {
         predicates.add(criteriaBuilder.isTrue(job.get("active")));
         predicates.add(buildOnsiteLocationPredicate(criteriaBuilder, job, preferredLocation));
 
-        if (targetSeniority != null) {
+        if (excludedSeniorities != null && !excludedSeniorities.isEmpty()) {
             predicates.add(criteriaBuilder.or(
                     criteriaBuilder.isNull(job.get("experienceLevel")),
-                    criteriaBuilder.equal(job.get("experienceLevel"), targetSeniority)
+                    criteriaBuilder.not(job.get("experienceLevel").in(excludedSeniorities))
             ));
         }
 

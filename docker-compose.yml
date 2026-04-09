@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_IMAPS_HOST: ${MAIL_IMAPS_HOST:-imap.gmail.com}
+      MAIL_IMAPS_PORT: ${MAIL_IMAPS_PORT:-993}
+      MAIL_IMAPS_USERNAME: ${MAIL_IMAPS_USERNAME:-}
+      MAIL_IMAPS_PASSWORD: ${MAIL_IMAPS_PASSWORD:-}
+      MAIL_IMAPS_FOLDER: ${MAIL_IMAPS_FOLDER:-INBOX}
+      MAIL_IMAPS_SSL_ENABLE: ${MAIL_IMAPS_SSL_ENABLE:-true}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  postgres-data:

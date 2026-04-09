@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface JobRepositoryCustom {
     List<Job> findMatchCandidates(
-            ExperienceLevel targetSeniority,
+            Collection<ExperienceLevel> excludedSeniorities,
             String preferredLocation,
             Collection<String> blacklistedCompanies,
             Collection<String> negativeTitleKeywords,
