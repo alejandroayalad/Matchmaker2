@@ -3,16 +3,15 @@ package com.alejandro.botjobhunter.service.importer;
 import com.alejandro.botjobhunter.dto.UrlImportResultDTO;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
-import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
 import com.alejandro.botjobhunter.repository.JobRepository;
 import com.alejandro.botjobhunter.service.JobDeduplicationService;
+import com.alejandro.botjobhunter.service.JobMetadataInferer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 @Service
@@ -98,7 +97,8 @@ public class UrlImportService {
                 .source(importAttempt.importer().getJobSource())
                 .salary(defaultIfBlank(result.salary(), DEFAULT_SALARY))
                 .recruiterName(DEFAULT_RECRUITER_NAME)
-                .experienceLevel(inferExperienceLevel(result.title()))
+                .jobType(JobMetadataInferer.inferJobType(result.title(), result.location(), result.description()))
+                .experienceLevel(JobMetadataInferer.inferExperienceLevel(result.title(), result.description(), result.location()))
                 .scrappedAt(importedAt)
                 .active(true)
                 .build();
@@ -118,34 +118,6 @@ public class UrlImportService {
         }
 
         return companyName.trim();
-    }
-
-    private ExperienceLevel inferExperienceLevel(String title) {
-        if (title == null || title.isBlank()) {
-            return ExperienceLevel.MID;
-        }
-
-        String normalizedTitle = title.toLowerCase(Locale.ROOT);
-        if (containsAny(normalizedTitle, "intern", "entry", "trainee")) {
-            return ExperienceLevel.ENTRY;
-        }
-        if (containsAny(normalizedTitle, "junior", "jr")) {
-            return ExperienceLevel.JUNIOR;
-        }
-        if (containsAny(normalizedTitle, "senior", "sr", "staff", "principal", "lead")) {
-            return ExperienceLevel.SENIOR;
-        }
-        return ExperienceLevel.MID;
-    }
-
-    private boolean containsAny(String value, String... tokens) {
-        for (String token : tokens) {
-            if (value.contains(token)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private String normalizeRequiredValue(String value, String message) {

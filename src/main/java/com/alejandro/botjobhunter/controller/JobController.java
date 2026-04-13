@@ -25,7 +25,7 @@ public class JobController {
 
     @GetMapping
     public List<Job> getAll() {
-        return jobRepository.findAll();
+        return jobRepository.findAllByOrderByActiveDescScrappedAtDesc();
     }
 
     @GetMapping("/{id}")

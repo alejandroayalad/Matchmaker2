@@ -4,13 +4,13 @@ import com.alejandro.botjobhunter.dto.EmailParseResult;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.EmailProcessingLog;
 import com.alejandro.botjobhunter.models.Job;
-import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
 import com.alejandro.botjobhunter.models.enums.EmailStatus;
 import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
 import com.alejandro.botjobhunter.repository.EmailProcessingLogRepository;
 import com.alejandro.botjobhunter.repository.JobRepository;
 import com.alejandro.botjobhunter.service.JobDeduplicationService;
+import com.alejandro.botjobhunter.service.JobMetadataInferer;
 import com.alejandro.botjobhunter.dto.EmailJobResultDTO;
 import jakarta.mail.Address;
 import jakarta.mail.Message;
@@ -38,6 +38,7 @@ import java.util.Objects;
 @Service
 @ConditionalOnProperty(prefix = "mail", name = "enabled", havingValue = "true")
 public class EmailOrchestrator {
+    private static final int MAX_PREVIEW_ITEMS = 24;
     private static final String DEFAULT_DESCRIPTION =
             "Imported from LinkedIn email alert. Full job description was not included in the email.";
     private static final String DEFAULT_REQUIREMENTS =
@@ -121,10 +122,12 @@ public class EmailOrchestrator {
             }
 
             accumulator.addExtractedJobs(parsedJobs.size());
+            accumulator.addExtractedPreviews(parsedJobs);
 
             List<Job> jobsToImport = mapToJobs(parsedJobs, processedAt);
             List<Job> uniqueJobs = jobDeduplicationService.deduplicate(jobsToImport);
-            int jobsSaved = saveNewJobs(uniqueJobs);
+            List<Job> savedJobs = saveNewJobs(uniqueJobs);
+            int jobsSaved = savedJobs.size();
 
             saveLog(
                     messageId,
@@ -138,7 +141,7 @@ public class EmailOrchestrator {
             if (jobsSaved > 0) {
                 cleanupProcessedMessage(message);
                 accumulator.incrementProcessed();
-                accumulator.addSavedJobs(jobsSaved);
+                accumulator.addSavedJobs(savedJobs);
             } else {
                 accumulator.incrementSkipped();
             }
@@ -169,13 +172,24 @@ public class EmailOrchestrator {
                     .title(parsedJob.title())
                     .company(company)
                     .location(parsedJob.location())
-                    .description(DEFAULT_DESCRIPTION)
-                    .requirements(DEFAULT_REQUIREMENTS)
+                    .description(defaultIfBlank(parsedJob.summary(), DEFAULT_DESCRIPTION))
+                    .requirements(formatInsights(parsedJob.insights()))
                     .urlApplication(parsedJob.url())
                     .source(JobSource.LINKEDIN_EMAIL)
                     .salary(DEFAULT_SALARY)
                     .recruiterName(DEFAULT_RECRUITER_NAME)
-                    .experienceLevel(inferExperienceLevel(parsedJob.title()))
+                    .jobType(JobMetadataInferer.inferJobType(
+                            parsedJob.title(),
+                            parsedJob.location(),
+                            parsedJob.summary(),
+                            String.join(" ", parsedJob.insights())
+                    ))
+                    .experienceLevel(JobMetadataInferer.inferExperienceLevel(
+                            parsedJob.title(),
+                            parsedJob.summary(),
+                            parsedJob.location(),
+                            String.join(" ", parsedJob.insights())
+                    ))
                     .scrappedAt(processedAt)
                     .active(true)
                     .build();
@@ -202,8 +216,8 @@ public class EmailOrchestrator {
         return company;
     }
 
-    private int saveNewJobs(List<Job> jobs) {
-        int savedCount = 0;
+    private List<Job> saveNewJobs(List<Job> jobs) {
+        List<Job> savedJobs = new ArrayList<>();
 
         for (Job job : jobs) {
             String companyName = job.getCompany() != null ? job.getCompany().getName() : normalizeCompanyName(null);
@@ -215,11 +229,10 @@ public class EmailOrchestrator {
                 continue;
             }
 
-            jobRepository.save(job);
-            savedCount++;
+            savedJobs.add(jobRepository.save(job));
         }
 
-        return savedCount;
+        return savedJobs;
     }
 
     private void saveLog(
@@ -294,33 +307,6 @@ public class EmailOrchestrator {
         return companyName.trim();
     }
 
-    private ExperienceLevel inferExperienceLevel(String title) {
-        if (title == null || title.isBlank()) {
-            return ExperienceLevel.MID;
-        }
-
-        String normalizedTitle = title.toLowerCase(Locale.ROOT);
-        if (containsAny(normalizedTitle, "intern", "entry", "trainee")) {
-            return ExperienceLevel.ENTRY;
-        }
-        if (containsAny(normalizedTitle, "junior", "jr")) {
-            return ExperienceLevel.JUNIOR;
-        }
-        if (containsAny(normalizedTitle, "senior", "sr", "staff", "principal", "lead")) {
-            return ExperienceLevel.SENIOR;
-        }
-        return ExperienceLevel.MID;
-    }
-
-    private boolean containsAny(String value, String... tokens) {
-        for (String token : tokens) {
-            if (value.contains(token)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private SearchTerm buildLinkedInSearchTerm(Date since) {
         SearchTerm fromLinkedIn = new FromStringTerm("linkedin");
         SearchTerm subjectLinkedIn = new SubjectTerm("LinkedIn");
@@ -334,6 +320,18 @@ public class EmailOrchestrator {
         return new AndTerm(linkedInTerm, receivedSince);
     }
 
+    private String defaultIfBlank(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value.trim();
+    }
+
+    private String formatInsights(List<String> insights) {
+        if (insights == null || insights.isEmpty()) {
+            return DEFAULT_REQUIREMENTS;
+        }
+
+        return String.join(" | ", insights);
+    }
+
     private static final class EmailImportAccumulator {
         private final int emailsScanned;
         private int emailsProcessed;
@@ -341,6 +339,8 @@ public class EmailOrchestrator {
         private int emailsFailed;
         private int jobsExtracted;
         private int jobsSaved;
+        private final List<EmailJobResultDTO> extractedJobPreviews = new ArrayList<>();
+        private final List<Job> savedJobPreviews = new ArrayList<>();
 
         private EmailImportAccumulator(int emailsScanned) {
             this.emailsScanned = emailsScanned;
@@ -362,8 +362,22 @@ public class EmailOrchestrator {
             jobsExtracted += count;
         }
 
-        private void addSavedJobs(int count) {
-            jobsSaved += count;
+        private void addExtractedPreviews(List<EmailJobResultDTO> jobs) {
+            addPreviewItems(extractedJobPreviews, jobs);
+        }
+
+        private void addSavedJobs(List<Job> jobs) {
+            jobsSaved += jobs.size();
+            addPreviewItems(savedJobPreviews, jobs);
+        }
+
+        private <T> void addPreviewItems(List<T> target, List<T> values) {
+            if (target.size() >= MAX_PREVIEW_ITEMS || values == null || values.isEmpty()) {
+                return;
+            }
+
+            int remaining = MAX_PREVIEW_ITEMS - target.size();
+            target.addAll(values.subList(0, Math.min(remaining, values.size())));
         }
 
         private EmailParseResult toResult() {
@@ -373,7 +387,9 @@ public class EmailOrchestrator {
                     emailsSkipped,
                     emailsFailed,
                     jobsExtracted,
-                    jobsSaved
+                    jobsSaved,
+                    extractedJobPreviews,
+                    savedJobPreviews
             );
         }
     }

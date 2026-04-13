@@ -5,6 +5,7 @@ import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.enums.JobSource;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
+import com.alejandro.botjobhunter.service.JobMetadataInferer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
@@ -85,6 +86,8 @@ public class IndeedScraper implements JobScrapper{
                                 .urlApplication("https://mx.indeed.com/viewjob?jk=" + dto.getJobkey())
                                 .source(JobSource.INDEED)
                                 .salary(salary)
+                                .jobType(JobMetadataInferer.inferJobType(dto.getBestTitle(), dto.getFormattedLocation(), cleanSnippet, salary))
+                                .experienceLevel(JobMetadataInferer.inferExperienceLevel(dto.getBestTitle(), cleanSnippet))
                                 .active(true)
                                 .build();
 

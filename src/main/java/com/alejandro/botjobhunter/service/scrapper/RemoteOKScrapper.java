@@ -4,10 +4,12 @@ import com.alejandro.botjobhunter.dto.RemoteOKJobDTO;
 import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.enums.JobSource;
+import com.alejandro.botjobhunter.models.enums.JobType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.jsoup.Jsoup;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
+import com.alejandro.botjobhunter.service.JobMetadataInferer;
 
 import java.util.Arrays;
 import java.util.stream.*;
@@ -102,6 +104,10 @@ public class RemoteOKScrapper implements JobScrapper {
                         .description(cleanDescription)
                         .urlApplication(dto.getUrl())
                         .source(JobSource.REMOTEOK)
+                        .jobType(JobMetadataInferer.inferJobType(dto.getPosition(), dto.getLocation(), cleanDescription) != null
+                                ? JobMetadataInferer.inferJobType(dto.getPosition(), dto.getLocation(), cleanDescription)
+                                : JobType.REMOTE)
+                        .experienceLevel(JobMetadataInferer.inferExperienceLevel(dto.getPosition(), cleanDescription))
                         .active(true)
                         .build();
 

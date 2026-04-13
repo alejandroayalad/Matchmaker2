@@ -289,4 +289,33 @@ class LinkedInEmailParserTest {
                 results.get(0)
         );
     }
+
+    @Test
+    void parseShouldCaptureSummaryAndInsightsWhenPresent() {
+        String html = """
+                <html>
+                  <body>
+                    <table>
+                      <tr>
+                        <td>
+                          <a href="https://www.linkedin.com/comm/jobs/view/7777/?trackingId=jobcard_body_0"
+                             style="font-weight:600">
+                            Backend Platform Engineer
+                          </a>
+                          <p style="color:#1f1f1f;font-size:12px">Acme Corp · Remote</p>
+                          <p>Build internal developer tooling for distributed product teams across North America.</p>
+                          <p>Full-time · Actively reviewing applicants · Easy Apply</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </body>
+                </html>
+                """;
+
+        List<EmailJobResultDTO> results = parser.parse(html);
+
+        assertEquals(1, results.size());
+        assertEquals("Build internal developer tooling for distributed product teams across North America.", results.get(0).summary());
+        assertEquals(List.of("Full-time", "Actively reviewing applicants", "Easy Apply"), results.get(0).insights());
+    }
 }

@@ -12,6 +12,9 @@ public interface JobRepository extends JpaRepository<Job, Long>, JobRepositoryCu
     @EntityGraph(attributePaths = "company")
     List<Job> findAll();
 
+    @EntityGraph(attributePaths = "company")
+    List<Job> findAllByOrderByActiveDescScrappedAtDesc();
+
     @Override
     @EntityGraph(attributePaths = "company")
     Optional<Job> findById(Long id);

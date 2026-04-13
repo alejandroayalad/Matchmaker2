@@ -5,6 +5,7 @@ import com.alejandro.botjobhunter.models.Company;
 import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.enums.ExperienceLevel;
 import com.alejandro.botjobhunter.models.enums.JobSource;
+import com.alejandro.botjobhunter.models.enums.JobType;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
 import com.alejandro.botjobhunter.repository.JobRepository;
 import com.alejandro.botjobhunter.service.JobDeduplicationService;
@@ -70,6 +71,7 @@ class UrlImportServiceTest {
         assertEquals("MXN 90,000 - 110,000 monthly", savedJob.getSalary());
         assertEquals("Not available", savedJob.getRecruiterName());
         assertEquals(ExperienceLevel.SENIOR, savedJob.getExperienceLevel());
+        assertEquals(JobType.REMOTE, savedJob.getJobType());
         assertEquals(parsedJob.url(), savedJob.getUrlApplication());
         assertEquals(Boolean.TRUE, savedJob.getActive());
         assertNotNull(savedJob.getScrappedAt());

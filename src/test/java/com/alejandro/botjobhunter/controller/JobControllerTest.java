@@ -1,6 +1,7 @@
 package com.alejandro.botjobhunter.controller;
 
 import com.alejandro.botjobhunter.dto.ScoreCard;
+import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.repository.JobRepository;
 import com.alejandro.botjobhunter.service.matching.JobScoringService;
 import com.alejandro.botjobhunter.service.scrapper.ScraperOrchestrator;
@@ -18,6 +19,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JobControllerTest {
+
+    @Test
+    void getAllShouldUseSortedRepositoryQuery() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ScraperOrchestrator scraperOrchestrator = mock(ScraperOrchestrator.class);
+        JobScoringService jobScoringService = mock(JobScoringService.class);
+        JobController controller = new JobController(jobRepository, scraperOrchestrator, jobScoringService);
+
+        List<Job> expected = List.of(Job.builder().title("Backend Engineer").build());
+        when(jobRepository.findAllByOrderByActiveDescScrappedAtDesc()).thenReturn(expected);
+
+        List<Job> result = controller.getAll();
+
+        assertEquals(expected, result);
+        verify(jobRepository).findAllByOrderByActiveDescScrappedAtDesc();
+    }
 
     @Test
     void getMatchedJobsShouldDelegateToScoringService() {

@@ -6,6 +6,7 @@ import com.alejandro.botjobhunter.models.EmailProcessingLog;
 import com.alejandro.botjobhunter.models.Job;
 import com.alejandro.botjobhunter.models.enums.EmailStatus;
 import com.alejandro.botjobhunter.models.enums.JobSource;
+import com.alejandro.botjobhunter.models.enums.JobType;
 import com.alejandro.botjobhunter.repository.CompanyRepository;
 import com.alejandro.botjobhunter.repository.EmailProcessingLogRepository;
 import com.alejandro.botjobhunter.repository.JobRepository;
@@ -92,7 +93,12 @@ class EmailOrchestratorTest {
 
         EmailParseResult result = orchestrator.importLinkedInEmails(null);
 
-        assertEquals(new EmailParseResult(1, 1, 0, 0, 1, 1), result);
+        assertEquals(1, result.emailsScanned());
+        assertEquals(1, result.emailsProcessed());
+        assertEquals(1, result.jobsExtracted());
+        assertEquals(1, result.jobsSaved());
+        assertEquals(1, result.extractedJobs().size());
+        assertEquals(1, result.savedJobs().size());
         ArgumentCaptor<Job> jobCaptor = ArgumentCaptor.forClass(Job.class);
         verify(jobRepository).save(jobCaptor.capture());
         Job savedJob = jobCaptor.getValue();
@@ -103,6 +109,7 @@ class EmailOrchestratorTest {
         assertEquals("Not available from LinkedIn email alert import.", savedJob.getRequirements());
         assertEquals("Not specified", savedJob.getSalary());
         assertEquals("Not available", savedJob.getRecruiterName());
+        assertEquals(JobType.REMOTE, savedJob.getJobType());
         assertNotNull(savedJob.getCompany());
         assertEquals("Quik Hire Staffing", savedJob.getCompany().getName());
 
@@ -251,7 +258,10 @@ class EmailOrchestratorTest {
 
         EmailParseResult result = orchestrator.importLinkedInEmails(null);
 
-        assertEquals(new EmailParseResult(1, 1, 0, 0, 1, 1), result);
+        assertEquals(1, result.emailsScanned());
+        assertEquals(1, result.emailsProcessed());
+        assertEquals(1, result.jobsExtracted());
+        assertEquals(1, result.jobsSaved());
         verify(jobRepository).save(any(Job.class));
         verify(emailCleanupService).cleanup(message);
     }

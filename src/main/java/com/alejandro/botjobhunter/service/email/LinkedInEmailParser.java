@@ -11,9 +11,11 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,28 +56,136 @@ public class LinkedInEmailParser {
                 continue;
             }
 
-            Element cell = link.closest("table");
+            Element row = link.closest("tr");
+            Element table = link.closest("table");
+            Element cell = row != null ? row : table;
             String companyName = null;
             String location = null;
+            String summary = null;
+            List<String> insights = List.of();
 
             if (cell != null) {
-                Element companyLocationParagraph =
-                        cell.selectFirst("p[style*=color:#1f1f1f][style*=font-size:12px]");
-
-                if (companyLocationParagraph != null) {
-                    String companyAndLocation = clean(companyLocationParagraph.text());
-                    if (companyAndLocation != null) {
-                        String[] parts = companyAndLocation.split(" · ", 2);
-                        companyName = parts.length > 0 ? clean(parts[0]) : null;
-                        location = parts.length > 1 ? clean(parts[1]) : null;
-                    }
+                String companyAndLocation = extractCompanyLocation(cell);
+                if (companyAndLocation == null && table != null && table != cell) {
+                    companyAndLocation = extractCompanyLocation(table);
                 }
+                CompanyLocation details = splitCompanyLocation(companyAndLocation);
+                companyName = details.companyName();
+                location = details.location();
+
+                List<String> supportingLines = extractSupportingLines(cell, title, companyAndLocation, companyName, location);
+                summary = extractSummary(supportingLines);
+                insights = extractInsights(supportingLines, summary);
             }
 
-            jobsByUrl.putIfAbsent(url, new EmailJobResultDTO(title, companyName, location, url));
+            jobsByUrl.putIfAbsent(url, new EmailJobResultDTO(title, companyName, location, url, summary, insights));
         }
 
         return new ArrayList<>(jobsByUrl.values());
+    }
+
+    private String extractCompanyLocation(Element card) {
+        Element preferredParagraph = card.selectFirst("p[style*=color:#1f1f1f][style*=font-size:12px]");
+        if (preferredParagraph != null) {
+            return clean(preferredParagraph.text());
+        }
+
+        for (Element element : card.select("p, span, div")) {
+            String text = clean(element.text());
+            if (text != null && text.contains(" · ")) {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private CompanyLocation splitCompanyLocation(String companyAndLocation) {
+        if (companyAndLocation == null) {
+            return new CompanyLocation(null, null);
+        }
+
+        String[] parts = companyAndLocation.split(" · ", 2);
+        String companyName = parts.length > 0 ? clean(parts[0]) : null;
+        String location = parts.length > 1 ? clean(parts[1]) : null;
+        return new CompanyLocation(companyName, location);
+    }
+
+    private List<String> extractSupportingLines(
+            Element card,
+            String title,
+            String companyLocation,
+            String companyName,
+            String location
+    ) {
+        Set<String> lines = new LinkedHashSet<>();
+
+        for (Element element : card.select("p, li, span, div")) {
+            String text = clean(element.text());
+            if (text == null) {
+                continue;
+            }
+
+            if (text.equals(title)
+                    || text.equals(companyLocation)
+                    || text.equals(companyName)
+                    || text.equals(location)
+                    || text.contains(title + " " + companyLocation)) {
+                continue;
+            }
+
+            lines.add(text);
+        }
+
+        return new ArrayList<>(lines);
+    }
+
+    private String extractSummary(List<String> supportingLines) {
+        for (String line : supportingLines) {
+            if (line.length() >= 60 || wordCount(line) >= 10) {
+                return line;
+            }
+        }
+
+        return null;
+    }
+
+    private List<String> extractInsights(List<String> supportingLines, String summary) {
+        List<String> insights = new ArrayList<>();
+
+        for (String line : supportingLines) {
+            if (line.equals(summary)) {
+                continue;
+            }
+
+            for (String part : splitInsightCandidates(line)) {
+                if (part.length() < 3 || part.length() > 90 || containsIgnoreCase(part, "linkedin")) {
+                    continue;
+                }
+
+                insights.add(part);
+                if (insights.size() == 4) {
+                    return insights;
+                }
+            }
+        }
+
+        return insights;
+    }
+
+    private List<String> splitInsightCandidates(String line) {
+        List<String> parts = new ArrayList<>();
+        for (String candidate : line.split("\\s*[·•|]\\s*")) {
+            String cleaned = clean(candidate);
+            if (cleaned != null) {
+                parts.add(cleaned);
+            }
+        }
+        return parts;
+    }
+
+    private int wordCount(String value) {
+        return value == null || value.isBlank() ? 0 : value.trim().split("\\s+").length;
     }
 
     private List<Element> extractJobLinks(Document document) {
@@ -186,5 +296,8 @@ public class LinkedInEmailParser {
                 .trim();
 
         return cleaned.isBlank() ? null : cleaned;
+    }
+
+    private record CompanyLocation(String companyName, String location) {
     }
 }

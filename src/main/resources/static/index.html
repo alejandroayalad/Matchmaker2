@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matchmaker2</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+    :root {
+      --bg: #f2eee5;
+      --bg-accent: #efe3cf;
+      --panel: rgba(255, 250, 242, 0.86);
+      --panel-strong: rgba(255, 252, 247, 0.96);
+      --border: rgba(72, 54, 32, 0.12);
+      --text: #23170d;
+      --muted: #6b5a46;
+      --accent: #0f8b6d;
+      --accent-strong: #0b6d56;
+      --secondary: #d97b29;
+      --danger: #c14635;
+      --shadow: 0 24px 70px rgba(63, 42, 18, 0.12);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      background:
+        radial-gradient(circle at top left, rgba(217, 123, 41, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 139, 109, 0.15), transparent 24%),
+        linear-gradient(180deg, var(--bg) 0%, #f8f5ef 100%);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(35, 23, 13, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(35, 23, 13, 0.025) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 85%);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar {
+      padding: 28px 22px 24px;
+      border-right: 1px solid var(--border);
+      background: rgba(255, 247, 237, 0.82);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      margin-bottom: 26px;
+      padding: 18px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #fffaf2, #f7ead8);
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(72, 54, 32, 0.08);
+    }
+
+    .brand-kicker {
+      color: var(--secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 10px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 34px;
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+    }
+
+    .brand p {
+      margin: 12px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav button {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      padding: 14px 16px;
+      border-radius: 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+
+    .nav button:hover {
+      transform: translateX(3px);
+      border-color: rgba(15, 139, 109, 0.18);
+      background: rgba(15, 139, 109, 0.08);
+      color: var(--text);
+    }
+
+    .nav button.active {
+      background: linear-gradient(135deg, rgba(15, 139, 109, 0.16), rgba(15, 139, 109, 0.08));
+      border-color: rgba(15, 139, 109, 0.22);
+      color: var(--text);
+    }
+
+    .nav-label {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+
+    .nav-meta {
+      display: block;
+      font-size: 11px;
+      color: inherit;
+      opacity: 0.84;
+    }
+
+    .main {
+      padding: 26px;
+    }
+
+    .page {
+      display: none;
+      animation: rise 180ms ease;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .hero,
+    .panel,
+    .job-card,
+    .stat-card,
+    .preview-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      padding: 24px;
+      margin-bottom: 20px;
+      background:
+        linear-gradient(140deg, rgba(255, 252, 247, 0.94), rgba(248, 238, 225, 0.9)),
+        linear-gradient(135deg, rgba(15, 139, 109, 0.06), rgba(217, 123, 41, 0.08));
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      right: -72px;
+      top: -96px;
+      background: radial-gradient(circle, rgba(15, 139, 109, 0.14), transparent 70%);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.9fr);
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(30px, 5vw, 50px);
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 64ch;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 13px;
+    }
+
+    .hero-note {
+      padding: 18px;
+      border-radius: 22px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(72, 54, 32, 0.08);
+    }
+
+    .hero-note strong {
+      display: block;
+      margin-bottom: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+    }
+
+    .hero-note p {
+      font-size: 12px;
+      line-height: 1.75;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .panel {
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      margin: 0 0 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      letter-spacing: -0.04em;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    button,
+    textarea {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(72, 54, 32, 0.12);
+      background: rgba(255, 251, 245, 0.95);
+      color: var(--text);
+      font: inherit;
+      padding: 13px 14px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(15, 139, 109, 0.16);
+      border-color: rgba(15, 139, 109, 0.28);
+    }
+
+    button {
+      cursor: pointer;
+      transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #f7fff9;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 251, 245, 0.95);
+    }
+
+    .status {
+      display: none;
+      margin-bottom: 14px;
+      padding: 13px 15px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status.loading {
+      background: rgba(15, 139, 109, 0.08);
+      color: var(--accent-strong);
+    }
+
+    .status.ok {
+      background: rgba(15, 139, 109, 0.12);
+      color: var(--accent-strong);
+    }
+
+    .status.err {
+      background: rgba(193, 70, 53, 0.12);
+      color: var(--danger);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      background: var(--panel-strong);
+    }
+
+    .stat-card strong {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 34px;
+      line-height: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .section-heading {
+      margin: 18px 0 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      letter-spacing: -0.04em;
+    }
+
+    .job-grid,
+    .preview-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .job-card,
+    .preview-card {
+      padding: 18px;
+      background: var(--panel-strong);
+    }
+
+    .job-top,
+    .preview-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .job-title,
+    .preview-title {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 26px;
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    .job-title a,
+    .preview-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .job-title a:hover,
+    .preview-title a:hover {
+      color: var(--accent-strong);
+    }
+
+    .job-company,
+    .preview-company {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(72, 54, 32, 0.1);
+      background: #fff8ef;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .badge.source {
+      background: rgba(15, 139, 109, 0.11);
+      color: var(--accent-strong);
+      border-color: rgba(15, 139, 109, 0.14);
+    }
+
+    .badge.warn {
+      background: rgba(217, 123, 41, 0.11);
+      color: #9c5212;
+      border-color: rgba(217, 123, 41, 0.14);
+    }
+
+    .badge.danger {
+      background: rgba(193, 70, 53, 0.11);
+      color: var(--danger);
+      border-color: rgba(193, 70, 53, 0.16);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .meta {
+      padding: 11px 12px;
+      border-radius: 16px;
+      background: rgba(242, 238, 229, 0.6);
+      border: 1px solid rgba(72, 54, 32, 0.08);
+    }
+
+    .meta strong {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .meta span,
+    .meta a {
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.65;
+      word-break: break-word;
+    }
+
+    .summary {
+      font-size: 12px;
+      line-height: 1.9;
+      color: var(--text);
+      background: rgba(255, 247, 237, 0.74);
+      border: 1px solid rgba(72, 54, 32, 0.08);
+      border-radius: 18px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+    }
+
+    .score-box {
+      min-width: 160px;
+      padding: 14px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(15, 139, 109, 0.12), rgba(15, 139, 109, 0.04));
+      border: 1px solid rgba(15, 139, 109, 0.14);
+      text-align: right;
+    }
+
+    .score-box strong {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 44px;
+      line-height: 0.88;
+    }
+
+    .score-box span {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    details {
+      margin-top: 10px;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(72, 54, 32, 0.08);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .empty {
+      padding: 34px 18px;
+      text-align: center;
+      color: var(--muted);
+      border-radius: var(--radius);
+      border: 1px dashed rgba(72, 54, 32, 0.18);
+      background: rgba(255, 251, 245, 0.7);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 18px;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .layout,
+      .split,
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .main {
+        padding: 16px;
+      }
+
+      .sidebar {
+        padding: 18px 16px;
+      }
+
+      .job-top,
+      .preview-top {
+        flex-direction: column;
+      }
+
+      .score-box {
+        width: 100%;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-kicker">Matchmaker2</div>
+        <h1>Make The Extraction Look Useful.</h1>
+        <p>The app now exposes richer import previews and surfaces the fields that were already being captured but not shown.</p>
+      </div>
+
+      <div class="nav">
+        <button class="active" data-page="jobs">
+          <span class="nav-label">Jobs</span>
+          <span class="nav-meta">Browse the stored jobs with real extracted fields.</span>
+        </button>
+        <button data-page="matched">
+          <span class="nav-label">Matched</span>
+          <span class="nav-meta">See the scored view with the underlying metadata.</span>
+        </button>
+        <button data-page="scrape">
+          <span class="nav-label">Scrape</span>
+          <span class="nav-meta">Run on-demand scraping and inspect the output immediately.</span>
+        </button>
+        <button data-page="import-url">
+          <span class="nav-label">Import URL</span>
+          <span class="nav-meta">Import a job page and verify what got captured.</span>
+        </button>
+        <button data-page="import-email">
+          <span class="nav-label">Import Email</span>
+          <span class="nav-meta">See counts plus extracted and saved job previews.</span>
+        </button>
+        <button data-page="email-log">
+          <span class="nav-label">Email Log</span>
+          <span class="nav-meta">Review processing history and outcomes.</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section id="page-jobs" class="page active">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>Stored Jobs, Ordered And Expanded.</h2>
+              <p>This view prioritizes recent active jobs and shows description, requirements, salary, recruiter, modality, timestamps, and any other non-empty fields. The goal is to make extraction quality obvious instead of hiding everything behind a title.</p>
+            </div>
+            <div class="hero-note">
+              <strong>What changed</strong>
+              <p>`/api/jobs` is now sorted by active status and recency. The frontend also distinguishes real data from placeholders, so the cards emphasize useful extracted content rather than empty defaults.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div>
+              <label for="jobs-search">Search</label>
+              <input id="jobs-search" type="text" placeholder="backend, remote, acme">
+            </div>
+            <div>
+              <label for="jobs-source">Source</label>
+              <select id="jobs-source">
+                <option value="">All sources</option>
+              </select>
+            </div>
+            <div>
+              <label for="jobs-rich">Signal</label>
+              <select id="jobs-rich">
+                <option value="">Any record</option>
+                <option value="rich">Only jobs with strong extracted detail</option>
+                <option value="needs-work">Only placeholder-heavy jobs</option>
+              </select>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="jobs-refresh" type="button">Refresh Jobs</button>
+            </div>
+          </div>
+          <div id="jobs-status" class="status"></div>
+          <div id="jobs-stats" class="stats-grid"></div>
+          <div id="jobs-list" class="job-grid"></div>
+        </div>
+      </section>
+
+      <section id="page-matched" class="page">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>Matched Jobs With Context.</h2>
+              <p>The matched view now uses the same rich card layout, so you can see why a score is high or low without flipping back to the jobs feed.</p>
+            </div>
+            <div class="hero-note">
+              <strong>Tip</strong>
+              <p>If a strong-looking job scores poorly, the missing field is often `jobType`, `experienceLevel`, or the description text. Those are visible here now.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div>
+              <label for="matched-user-id">User ID</label>
+              <input id="matched-user-id" type="number" value="1">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="matched-load" type="button">Load Matches</button>
+            </div>
+          </div>
+          <div id="matched-status" class="status"></div>
+          <div id="matched-list" class="job-grid"></div>
+        </div>
+      </section>
+
+      <section id="page-scrape" class="page">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>Scrape And Inspect.</h2>
+              <p>Run the scrapers and immediately inspect what came back, including the description excerpt and inferred job type when available.</p>
+            </div>
+            <div class="hero-note">
+              <strong>Scope</strong>
+              <p>This page shows transient scraper results; the Jobs page shows what is already stored in the app.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div>
+              <label for="scrape-query">Query</label>
+              <input id="scrape-query" type="text" placeholder="typescript">
+            </div>
+            <div>
+              <label for="scrape-location">Location</label>
+              <input id="scrape-location" type="text" placeholder="remote">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="scrape-run" type="button">Run Scrape</button>
+            </div>
+          </div>
+          <div id="scrape-status" class="status"></div>
+          <div id="scrape-list" class="job-grid"></div>
+        </div>
+      </section>
+
+      <section id="page-import-url" class="page">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>URL Import Preview.</h2>
+              <p>Use this to test page-level importers and confirm that description, salary, modality, and seniority are being inferred correctly.</p>
+            </div>
+            <div class="hero-note">
+              <strong>Why this matters</strong>
+              <p>The imported URL flow now infers job type the same way the email and scraper flows do, which makes the matched page more trustworthy.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div style="grid-column: 1 / -1;">
+              <label for="import-url-input">Job URL</label>
+              <input id="import-url-input" type="text" placeholder="https://www.linkedin.com/jobs/view/...">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="import-url-run" type="button">Import URL</button>
+            </div>
+          </div>
+          <div id="import-url-status" class="status"></div>
+          <div id="import-url-result"></div>
+        </div>
+      </section>
+
+      <section id="page-import-email" class="page">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>Email Import, Now With Proof.</h2>
+              <p>The response includes counters plus two preview streams: what the parser extracted from the email, and which jobs were actually saved. This makes it obvious whether the gap is parsing, deduplication, or persistence.</p>
+            </div>
+            <div class="hero-note">
+              <strong>New payload</strong>
+              <p>`/api/import/email` now returns `extractedJobs` and `savedJobs` in addition to the counts. LinkedIn email parsing also captures summary and insight chips when the email markup contains them.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div>
+              <label for="email-since">Since</label>
+              <input id="email-since" type="datetime-local">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="import-email-run" type="button">Run Email Import</button>
+            </div>
+          </div>
+          <div id="import-email-status" class="status"></div>
+          <div id="import-email-stats" class="stats-grid"></div>
+          <div class="split">
+            <div>
+              <h3 class="section-heading">Extracted From Email</h3>
+              <div id="import-email-extracted" class="preview-grid"></div>
+            </div>
+            <div>
+              <h3 class="section-heading">Saved To Jobs</h3>
+              <div id="import-email-saved" class="job-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-email-log" class="page">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <h2>Email Processing History.</h2>
+              <p>Use the log to spot whether recent imports were skipped, failed, or processed, then jump back to the import preview to inspect the extracted content.</p>
+            </div>
+            <div class="hero-note">
+              <strong>Reading the log</strong>
+              <p>If jobs extracted is non-zero but saved jobs remain empty in the import preview, deduplication or existing records are the likely cause.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="controls">
+            <div>
+              <label for="log-status-filter">Status</label>
+              <select id="log-status-filter">
+                <option value="">All statuses</option>
+                <option value="PROCESSED">Processed</option>
+                <option value="SKIPPED">Skipped</option>
+                <option value="FAILED">Failed</option>
+              </select>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="email-log-load" type="button">Load Log</button>
+            </div>
+          </div>
+          <div id="email-log-status" class="status"></div>
+          <div id="email-log-table"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const BASE = window.location.protocol === 'file:' ? 'http://localhost:8081' : '';
+    const state = {
+      jobs: []
+    };
+
+    const PLACEHOLDERS = new Set([
+      'Not specified',
+      'Not available',
+      'Not available from URL import.',
+      'Not available from LinkedIn email alert import.',
+      'Imported from a job URL. Full job description was not available on the page.',
+      'Imported from LinkedIn email alert. Full job description was not included in the email.'
+    ]);
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function safe(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function hasValue(value) {
+      return value !== null && value !== undefined && String(value).trim() !== '';
+    }
+
+    function hasRealValue(value) {
+      return hasValue(value) && !PLACEHOLDERS.has(String(value).trim());
+    }
+
+    function excerpt(value, size = 280) {
+      if (!hasValue(value)) return '';
+      const text = String(value).trim();
+      return text.length <= size ? text : `${text.slice(0, size).trim()}...`;
+    }
+
+    function formatDate(value) {
+      if (!hasValue(value)) return 'Unknown';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    }
+
+    function sourceBadge(source) {
+      return `<span class="badge source">${safe(source || 'UNKNOWN')}</span>`;
+    }
+
+    function flagBadge(label, kind = '') {
+      return `<span class="badge ${kind}">${safe(label)}</span>`;
+    }
+
+    function renderStats(items) {
+      if (!items.length) {
+        return '<div class="empty">No jobs loaded yet.</div>';
+      }
+
+      const withDescription = items.filter(job => hasRealValue(job.description)).length;
+      const withRequirements = items.filter(job => hasRealValue(job.requirements)).length;
+      const withSalary = items.filter(job => hasRealValue(job.salary)).length;
+      const withType = items.filter(job => hasValue(job.jobType)).length;
+
+      return `
+        <div class="stat-card"><strong>${items.length}</strong><span>Total jobs in view</span></div>
+        <div class="stat-card"><strong>${withDescription}</strong><span>With real description text</span></div>
+        <div class="stat-card"><strong>${withRequirements}</strong><span>With requirements or insights</span></div>
+        <div class="stat-card"><strong>${withSalary}</strong><span>With salary data</span></div>
+        <div class="stat-card"><strong>${withType}</strong><span>With inferred modality</span></div>
+      `;
+    }
+
+    function renderMeta(label, value, link) {
+      if (!hasValue(value)) return '';
+      const body = link
+        ? `<a href="${safe(link)}" target="_blank" rel="noreferrer">${safe(value)}</a>`
+        : `<span>${safe(value)}</span>`;
+      return `<div class="meta"><strong>${safe(label)}</strong>${body}</div>`;
+    }
+
+    function renderChips(job, score) {
+      const chips = [];
+      chips.push(sourceBadge(job.source));
+      if (job.jobType) chips.push(flagBadge(job.jobType));
+      if (job.experienceLevel) chips.push(flagBadge(job.experienceLevel, 'warn'));
+      if (job.active === false) chips.push(flagBadge('Inactive', 'danger'));
+      if (score?.seniorityMatch) chips.push(flagBadge('Seniority aligned'));
+      if (score?.modalityMatch) chips.push(flagBadge('Modality aligned'));
+      return chips.join('');
+    }
+
+    function renderScore(score) {
+      if (!score) return '';
+      const negatives = (score.negativeSignals || []).map(item => flagBadge(item, 'danger')).join('');
+      const skills = (score.skillMatches || []).map(item => flagBadge(item)).join('');
+      const breakdown = (score.matchBreakdown || []).map(item => `<div>${safe(item)}</div>`).join('');
+
+      return `
+        <div class="score-box">
+          <strong>${safe(score.totalScore)}</strong>
+          <span>Match Score</span>
+        </div>
+        <div class="badge-row">${skills}${negatives}</div>
+        ${breakdown ? `<details><summary>Why it scored this way</summary><div class="summary">${breakdown}</div></details>` : ''}
+      `;
+    }
+
+    function renderJobCard(job, score) {
+      const company = job.company?.name || 'Unknown Company';
+      const description = hasRealValue(job.description) ? excerpt(job.description, 340) : '';
+      const requirements = hasRealValue(job.requirements) ? excerpt(job.requirements, 260) : '';
+      const recruiter = hasRealValue(job.recruiterName) ? job.recruiterName : '';
+      const skills = hasRealValue(job.skills) ? job.skills.split(',').map(part => part.trim()).filter(Boolean) : [];
+      const details = [
+        renderMeta('Location', job.location),
+        renderMeta('Salary', job.salary),
+        renderMeta('Applied Count', job.applicationCount),
+        renderMeta('Recruiter', recruiter, hasRealValue(job.recruiterLinkedin) ? job.recruiterLinkedin : null),
+        renderMeta('Scraped At', formatDate(job.scrappedAt)),
+        renderMeta('Apply URL', job.urlApplication, job.urlApplication)
+      ].join('');
+
+      return `
+        <article class="job-card">
+          <div class="job-top">
+            <div>
+              <h3 class="job-title">${job.urlApplication ? `<a href="${safe(job.urlApplication)}" target="_blank" rel="noreferrer">${safe(job.title || 'Untitled job')}</a>` : safe(job.title || 'Untitled job')}</h3>
+              <div class="job-company">${safe(company)}</div>
+              <div class="badge-row">${renderChips(job, score)}</div>
+            </div>
+            ${renderScore(score)}
+          </div>
+          ${description ? `<div class="summary">${safe(description)}</div>` : ''}
+          ${requirements ? `<div class="summary">${safe(requirements)}</div>` : ''}
+          ${skills.length ? `<div class="badge-row">${skills.map(skill => flagBadge(skill)).join('')}</div>` : ''}
+          ${details ? `<div class="meta-grid">${details}</div>` : ''}
+          <details>
+            <summary>Full record</summary>
+            <div class="summary">${safe(JSON.stringify(job, null, 2))}</div>
+          </details>
+        </article>
+      `;
+    }
+
+    function renderEmailPreviewCard(job) {
+      const summary = hasRealValue(job.summary) ? `<div class="summary">${safe(excerpt(job.summary, 220))}</div>` : '';
+      const insights = (job.insights || []).map(item => flagBadge(item)).join('');
+
+      return `
+        <article class="preview-card">
+          <div class="preview-top">
+            <div>
+              <h3 class="preview-title">${job.url ? `<a href="${safe(job.url)}" target="_blank" rel="noreferrer">${safe(job.title || 'Untitled')}</a>` : safe(job.title || 'Untitled')}</h3>
+              <div class="preview-company">${safe(job.companyName || 'Unknown Company')} ${job.location ? `| ${safe(job.location)}` : ''}</div>
+            </div>
+          </div>
+          ${summary}
+          ${insights ? `<div class="badge-row">${insights}</div>` : ''}
+        </article>
+      `;
+    }
+
+    function setStatus(id, message, type) {
+      const el = byId(id);
+      el.textContent = message;
+      el.className = `status visible ${type}`;
+    }
+
+    function clearStatus(id) {
+      const el = byId(id);
+      el.textContent = '';
+      el.className = 'status';
+    }
+
+    function switchPage(pageName) {
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.querySelectorAll('.nav button').forEach(button => button.classList.remove('active'));
+      byId(`page-${pageName}`).classList.add('active');
+      document.querySelector(`.nav button[data-page="${pageName}"]`).classList.add('active');
+    }
+
+    function buildSourceOptions(jobs) {
+      const select = byId('jobs-source');
+      const selected = select.value;
+      const sources = [...new Set(jobs.map(job => job.source).filter(Boolean))].sort();
+      select.innerHTML = '<option value="">All sources</option>' + sources.map(source => `<option value="${safe(source)}">${safe(source)}</option>`).join('');
+      select.value = sources.includes(selected) ? selected : '';
+    }
+
+    function isRichJob(job) {
+      const score = [
+        hasRealValue(job.description),
+        hasRealValue(job.requirements),
+        hasRealValue(job.salary),
+        hasValue(job.jobType),
+        hasValue(job.experienceLevel)
+      ].filter(Boolean).length;
+      return score >= 2;
+    }
+
+    function renderJobs() {
+      const query = byId('jobs-search').value.trim().toLowerCase();
+      const source = byId('jobs-source').value;
+      const richness = byId('jobs-rich').value;
+
+      const filtered = state.jobs.filter(job => {
+        const haystack = JSON.stringify(job).toLowerCase();
+        if (query && !haystack.includes(query)) return false;
+        if (source && job.source !== source) return false;
+        if (richness === 'rich' && !isRichJob(job)) return false;
+        if (richness === 'needs-work' && isRichJob(job)) return false;
+        return true;
+      });
+
+      byId('jobs-stats').innerHTML = renderStats(filtered);
+      byId('jobs-list').innerHTML = filtered.length
+        ? filtered.map(job => renderJobCard(job)).join('')
+        : '<div class="empty">No jobs match the current filters.</div>';
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(await response.text() || `HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function loadJobs() {
+      setStatus('jobs-status', 'Loading jobs...', 'loading');
+      try {
+        state.jobs = await fetchJson(`${BASE}/api/jobs`);
+        buildSourceOptions(state.jobs);
+        renderJobs();
+        clearStatus('jobs-status');
+      } catch (error) {
+        setStatus('jobs-status', `Failed to load jobs: ${error.message}`, 'err');
+      }
+    }
+
+    async function loadMatched() {
+      const userId = byId('matched-user-id').value || '1';
+      setStatus('matched-status', 'Loading matched jobs...', 'loading');
+      try {
+        const [scores, jobs] = await Promise.all([
+          fetchJson(`${BASE}/api/jobs/matched?userId=${encodeURIComponent(userId)}`),
+          fetchJson(`${BASE}/api/jobs`)
+        ]);
+        const jobMap = Object.fromEntries(jobs.map(job => [job.id, job]));
+        byId('matched-list').innerHTML = scores.length
+          ? scores.map(score => renderJobCard(jobMap[score.jobId] || { id: score.jobId, title: `Job ${score.jobId}` }, score)).join('')
+          : '<div class="empty">No matched jobs were returned.</div>';
+        clearStatus('matched-status');
+      } catch (error) {
+        setStatus('matched-status', `Failed to load matches: ${error.message}`, 'err');
+      }
+    }
+
+    async function runScrape() {
+      const params = new URLSearchParams();
+      if (hasValue(byId('scrape-query').value)) params.set('query', byId('scrape-query').value.trim());
+      if (hasValue(byId('scrape-location').value)) params.set('location', byId('scrape-location').value.trim());
+
+      setStatus('scrape-status', 'Running scrape...', 'loading');
+      try {
+        const jobs = await fetchJson(`${BASE}/api/jobs/scrape?${params.toString()}`);
+        byId('scrape-list').innerHTML = jobs.length
+          ? jobs.map(job => renderJobCard(job)).join('')
+          : '<div class="empty">The scraper returned no jobs.</div>';
+        setStatus('scrape-status', `Scrape finished with ${jobs.length} result(s).`, 'ok');
+      } catch (error) {
+        setStatus('scrape-status', `Scrape failed: ${error.message}`, 'err');
+      }
+    }
+
+    async function importUrl() {
+      const url = byId('import-url-input').value.trim();
+      if (!url) return;
+
+      setStatus('import-url-status', 'Importing job page...', 'loading');
+      byId('import-url-result').innerHTML = '';
+
+      try {
+        const job = await fetchJson(`${BASE}/api/import/url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        byId('import-url-result').innerHTML = renderJobCard(job);
+        setStatus('import-url-status', 'URL import completed.', 'ok');
+        await loadJobs();
+      } catch (error) {
+        setStatus('import-url-status', `Import failed: ${error.message}`, 'err');
+      }
+    }
+
+    function renderImportStats(result) {
+      return `
+        <div class="stat-card"><strong>${safe(result.emailsScanned)}</strong><span>Emails scanned</span></div>
+        <div class="stat-card"><strong>${safe(result.emailsProcessed)}</strong><span>Emails processed</span></div>
+        <div class="stat-card"><strong>${safe(result.emailsSkipped)}</strong><span>Emails skipped</span></div>
+        <div class="stat-card"><strong>${safe(result.emailsFailed)}</strong><span>Emails failed</span></div>
+        <div class="stat-card"><strong>${safe(result.jobsExtracted)}</strong><span>Jobs extracted</span></div>
+        <div class="stat-card"><strong>${safe(result.jobsSaved)}</strong><span>Jobs saved</span></div>
+      `;
+    }
+
+    async function importEmail() {
+      const since = byId('email-since').value;
+      const url = since
+        ? `${BASE}/api/import/email?since=${encodeURIComponent(since)}`
+        : `${BASE}/api/import/email`;
+
+      setStatus('import-email-status', 'Importing LinkedIn emails...', 'loading');
+      byId('import-email-stats').innerHTML = '';
+      byId('import-email-extracted').innerHTML = '';
+      byId('import-email-saved').innerHTML = '';
+
+      try {
+        const result = await fetchJson(url, { method: 'POST' });
+        byId('import-email-stats').innerHTML = renderImportStats(result);
+        byId('import-email-extracted').innerHTML = (result.extractedJobs || []).length
+          ? result.extractedJobs.map(renderEmailPreviewCard).join('')
+          : '<div class="empty">No extracted preview items were returned.</div>';
+        byId('import-email-saved').innerHTML = (result.savedJobs || []).length
+          ? result.savedJobs.map(job => renderJobCard(job)).join('')
+          : '<div class="empty">No jobs were saved in this run.</div>';
+        setStatus('import-email-status', 'Email import completed.', 'ok');
+        await loadJobs();
+      } catch (error) {
+        setStatus('import-email-status', `Email import failed: ${error.message}`, 'err');
+      }
+    }
+
+    async function loadEmailLog() {
+      const status = byId('log-status-filter').value;
+      const params = new URLSearchParams({ size: '50' });
+      if (status) params.set('status', status);
+
+      setStatus('email-log-status', 'Loading email log...', 'loading');
+      try {
+        const page = await fetchJson(`${BASE}/api/import/email/log?${params.toString()}`);
+        const rows = page.content || [];
+
+        byId('email-log-table').innerHTML = rows.length ? `
+          <div class="panel">
+            <table>
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Subject</th>
+                  <th>Sender</th>
+                  <th>Jobs Extracted</th>
+                  <th>Processed At</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr>
+                    <td>${flagBadge(row.status, row.status === 'FAILED' ? 'danger' : row.status === 'SKIPPED' ? 'warn' : '')}</td>
+                    <td>${safe(row.subject || 'No subject')}</td>
+                    <td>${safe(row.sender || 'Unknown sender')}</td>
+                    <td>${safe(row.jobsExtracted)}</td>
+                    <td>${safe(formatDate(row.processedAt))}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : '<div class="empty">No email log rows found.</div>';
+
+        clearStatus('email-log-status');
+      } catch (error) {
+        setStatus('email-log-status', `Failed to load email log: ${error.message}`, 'err');
+      }
+    }
+
+    document.querySelectorAll('.nav button').forEach(button => {
+      button.addEventListener('click', () => switchPage(button.dataset.page));
+    });
+
+    byId('jobs-refresh').addEventListener('click', loadJobs);
+    byId('jobs-search').addEventListener('input', renderJobs);
+    byId('jobs-source').addEventListener('change', renderJobs);
+    byId('jobs-rich').addEventListener('change', renderJobs);
+    byId('matched-load').addEventListener('click', loadMatched);
+    byId('scrape-run').addEventListener('click', runScrape);
+    byId('import-url-run').addEventListener('click', importUrl);
+    byId('import-email-run').addEventListener('click', importEmail);
+    byId('email-log-load').addEventListener('click', loadEmailLog);
+
+    loadJobs();
+  </script>
+</body>
+</html>
